@@ -1,0 +1,9 @@
+[submodule "libs/RED4ext.SDK"]
+	path = libs/RED4ext.SDK
+	url = https://github.com/yamashi/RED4ext.SDK
+[submodule "libs/MinHook"]
+	path = libs/MinHook
+	url = https://github.com/TsudaKageyu/minhook
+[submodule "libs/pybind11"]
+	path = libs/pybind11
+	url = https://github.com/pybind/pybind11
