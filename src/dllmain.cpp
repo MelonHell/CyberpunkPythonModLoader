@@ -6,10 +6,37 @@ void messageBox(const std::string &text, const std::string &title) {
 	MessageBoxA(nullptr, text.c_str(), title.c_str(), 0);
 }
 
+std::vector<std::string> getGlobalFuncs() {
+	auto rtti = RED4ext::CRTTISystem::Get();
+	RED4ext::DynArray<RED4ext::CBaseFunction*> funcs;
+	rtti->GetGlobalFunctions(funcs);
+	std::vector<std::string> result;
+	for (const auto &item : funcs) {
+		result.emplace_back(item->fullName.ToString());
+	}
+	return result;
+}
+
 PYBIND11_EMBEDDED_MODULE(cyberpunk, m) {
+
+	auto rtti = RED4ext::CRTTISystem::Get();
+	RED4ext::DynArray<RED4ext::CBaseFunction*> funcs;
+	rtti->GetGlobalFunctions(funcs);
+	for (const auto &item : funcs) {
+		const std::string cShortName = item->shortName.ToString();
+		m.def(item->shortName.ToString(), [&item](const pybind11::args& args){
+			std::vector<pybind11::object> pyArgs;
+			for (const auto &arg : args) {
+				pyArgs.push_back(arg.cast<pybind11::object>());
+			}
+			return ExecuteGlobalFunction(item->fullName.ToString(), pyArgs);
+		});
+	}
+
 	m.def("ExecuteGlobalFunction", ExecuteGlobalFunction);
 	m.def("GetInstance", GetInstance);
 	m.def("messageBox", &messageBox);
+	m.def("getGlobalFuncs", &getGlobalFuncs);
 	pybind11::class_<PyGameObject>(m, "GameObject")
 	        .def("exec", &PyGameObject::exec)
 			.def("get", &PyGameObject::get)

@@ -91,7 +91,18 @@ PyGameObject GetInstance(const std::string &className) {
 
 PyGameObject ExecuteGlobalFunction(const std::string &funcName, std::vector<pybind11::object> pyArgs) {
 	auto rtti = RED4ext::CRTTISystem::Get();
-	auto func = rtti->GetFunction(funcName.c_str());
+	RED4ext::CBaseFunction* func = rtti->GetFunction(funcName.c_str());
+	if (func == nullptr) {
+		RED4ext::DynArray<RED4ext::CBaseFunction*> funcs;
+		rtti->GetGlobalFunctions(funcs);
+		for (const auto &item : funcs) {
+			const std::string cShortName = item->shortName.ToString();
+			if (cShortName == funcName) {
+				func = item;
+				break;
+			}
+		}
+	}
 	return ExecuteFunction(GetInstance("cpPlayerSystem").value, func, std::move(pyArgs));
 }
 
