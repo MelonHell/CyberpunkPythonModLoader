@@ -1,47 +1,6 @@
 #include "PyGameObject.h"
 
-#include <utility>
-
-PyGameObject::PyGameObject(RED4ext::CBaseRTTIType *type, RED4ext::ScriptInstance value) {
-	this->type = type;
-	this->value = value;
-}
-
-pybind11::object PyGameObject::get(const std::string& propName) {
-	return ToPython(GetPropValue(*this, propName));
-}
-
-pybind11::object PyGameObject::exec(const std::string& funcName, std::vector<pybind11::object> pyArgs) {
-	return ToPython(ExecuteFunction(*this, funcName, std::move(pyArgs)));
-}
-
-std::string PyGameObject::getTypeName() const {
-	return this->type->GetName().ToString();
-}
-
-int PyGameObject::getTypeType() const {
-	return static_cast<int>(this->type->GetType());
-}
-
-void PyGameObject::set(const std::string& propName, const pybind11::object& propValue) {
-	SetPropValue(*this, propName, propValue);
-}
-
-std::vector<std::string> PyGameObject::getFuncs() {
-	auto rtti = RED4ext::CRTTISystem::Get();
-	auto cls = rtti->GetClass(type->GetName());
-	RED4ext::DynArray<RED4ext::CBaseFunction*> funcs;
-	rtti->GetClassFunctions(funcs);
-	std::vector<std::string> result;
-	for (const auto &item : funcs) {
-		if (item->GetParent() == cls) {
-			result.emplace_back(item->fullName.ToString());
-		}
-	}
-	return result;
-}
-
-PyGameObject ExecuteFunction(RED4ext::ScriptInstance aInstance, RED4ext::CBaseFunction *aFunc, std::vector<pybind11::object> pyArgs) {
+RED4ext::CStackType ExecuteFunction(RED4ext::ScriptInstance aInstance, RED4ext::CBaseFunction *aFunc, std::vector<pybind11::handle> pyArgs) {
 
 	RED4ext::StackArgs_t aArgs;
 
@@ -73,14 +32,14 @@ PyGameObject ExecuteFunction(RED4ext::ScriptInstance aInstance, RED4ext::CBaseFu
 	return UnHandle(result);
 }
 
-PyGameObject ExecuteFunction(PyGameObject object, const std::string &funcName, std::vector<pybind11::object> pyArgs) {
+RED4ext::CStackType ExecuteFunction(RED4ext::CStackType object, const std::string &funcName, std::vector<pybind11::handle> pyArgs) {
 	auto rtti = RED4ext::CRTTISystem::Get();
 	auto cls = rtti->GetClass(object.type->GetName());
 	auto aFunc = cls->GetFunction(funcName.c_str());
 	return ExecuteFunction(object.value, aFunc, std::move(pyArgs));
 }
 
-PyGameObject GetInstance(const std::string &className) {
+RED4ext::CStackType GetInstance(const std::string &className) {
 	auto rtti = RED4ext::CRTTISystem::Get();
 	auto type = rtti->GetClass(className.c_str());
 	auto engine = RED4ext::CGameEngine::Get();
@@ -89,7 +48,7 @@ PyGameObject GetInstance(const std::string &className) {
 	return UnHandle({instance->GetType(), instance.GetPtr()});
 }
 
-PyGameObject ExecuteGlobalFunction(const std::string &funcName, std::vector<pybind11::object> pyArgs) {
+RED4ext::CStackType ExecuteGlobalFunction(const std::string &funcName, std::vector<pybind11::handle> pyArgs) {
 	auto rtti = RED4ext::CRTTISystem::Get();
 	RED4ext::CBaseFunction* func = rtti->GetFunction(funcName.c_str());
 	if (func == nullptr) {
@@ -106,7 +65,7 @@ PyGameObject ExecuteGlobalFunction(const std::string &funcName, std::vector<pybi
 	return ExecuteFunction(GetInstance("cpPlayerSystem").value, func, std::move(pyArgs));
 }
 
-PyGameObject UnHandle(RED4ext::CStackType object) {
+RED4ext::CStackType UnHandle(RED4ext::CStackType object) {
 	if (object.type && object.value) {
 		if (object.type->GetType() == RED4ext::ERTTIType::Handle) {
 			RED4ext::Handle<RED4ext::IScriptable> handle = *static_cast<RED4ext::Handle<RED4ext::IScriptable> *>(object.value);
@@ -116,7 +75,7 @@ PyGameObject UnHandle(RED4ext::CStackType object) {
 	return {object.type, object.value};
 }
 
-PyGameObject GetValuePtr(RED4ext::CProperty *prop, RED4ext::ScriptInstance aInstance) {
+RED4ext::CStackType GetValuePtr(RED4ext::CProperty *prop, RED4ext::ScriptInstance aInstance) {
 	void *holder = aInstance;
 	if (prop->flags.b21) {
 		using func_t = void *(*)(RED4ext::ScriptInstance);
@@ -127,14 +86,14 @@ PyGameObject GetValuePtr(RED4ext::CProperty *prop, RED4ext::ScriptInstance aInst
 	return {prop->type, value};
 }
 
-PyGameObject GetPropValue(PyGameObject object, const std::string &propName) {
+RED4ext::CStackType GetPropValue(RED4ext::CStackType object, const std::string &propName) {
 	auto rtti = RED4ext::CRTTISystem::Get();
 	auto cls = rtti->GetClass(object.type->GetName());
 	auto prop = cls->GetProperty(propName.c_str());
 	return GetValuePtr(prop, object.value);
 }
 
-void SetPropValue(PyGameObject object, const std::string &propName, const pybind11::object &value) {
+void SetPropValue(RED4ext::CStackType object, const std::string &propName, const pybind11::handle &value) {
 	auto rtti = RED4ext::CRTTISystem::Get();
 	auto cls = rtti->GetClass(object.type->GetName());
 	auto prop = cls->GetProperty(propName.c_str());
@@ -143,9 +102,27 @@ void SetPropValue(PyGameObject object, const std::string &propName, const pybind
 	prop->type->Assign(prevValue.value, newValue.value);
 }
 
-pybind11::object ToPython(PyGameObject object) {
+pybind11::handle ToPython(RED4ext::CStackType object) {
 	if (object.type == nullptr || object.value == nullptr) return pybind11::none();
-	if (object.type->GetType() == RED4ext::ERTTIType::Class) return pybind11::cast(object);
+	if (object.type->GetType() == RED4ext::ERTTIType::Class) {
+		auto pyObj = pybind11::cast(object);
+		auto rtti = RED4ext::CRTTISystem::Get();
+		auto cls = (RED4ext::CClass*) object.type;
+		RED4ext::DynArray<RED4ext::CBaseFunction*> funcs;
+		rtti->GetClassFunctions(funcs);
+		for (const auto &func : funcs) {
+			if (cls->GetFunction(func->fullName)) {
+				setattr(pyObj, func->shortName.ToString(), pybind11::cpp_function([object, &func](const pybind11::args& args){
+					std::vector<pybind11::handle> pyArgs;
+					for (const auto &arg : args) {
+						pyArgs.push_back(arg.cast<pybind11::handle>());
+					}
+					return ExecuteFunction(object, func->fullName.ToString(), pyArgs);
+				}));
+			}
+		}
+		return pyObj;
+	}
 	if (object.type->GetType() == RED4ext::ERTTIType::Enum) return pybind11::cast((int32_t *) object.value);
 	if (object.type->GetType() == RED4ext::ERTTIType::Fundamental) {
 		if (object.type->GetName() == "Bool") return pybind11::cast((bool *) object.value);
@@ -164,9 +141,9 @@ pybind11::object ToPython(PyGameObject object) {
 	return pybind11::none();
 }
 
-RED4ext::CStackType FromPython(const pybind11::object &object, RED4ext::CBaseRTTIType *type) {
+RED4ext::CStackType FromPython(const pybind11::handle &object, RED4ext::CBaseRTTIType *type) {
 	if (type->GetType() == RED4ext::ERTTIType::Class) {
-		auto pgo = object.cast<PyGameObject>();
+		auto pgo = object.cast<RED4ext::CStackType>();
 		return {pgo.type, pgo.value};
 	}
 	if (type->GetType() == RED4ext::ERTTIType::Enum) {
@@ -174,14 +151,6 @@ RED4ext::CStackType FromPython(const pybind11::object &object, RED4ext::CBaseRTT
 		return {type, &value};
 	}
 	if (type->GetType() == RED4ext::ERTTIType::Fundamental) {
-		if (type->GetName() == "Bool") {
-			auto value = object.cast<bool>();
-			return {type, &value};
-		}
-		if (type->GetName() == "Int8") {
-			auto value = object.cast<int8_t>();
-			return {type, &value};
-		}
 		if (type->GetName() == "Bool") {
 			auto value = object.cast<bool>();
 			return {type, &value};

@@ -18,18 +18,19 @@ std::vector<std::string> getGlobalFuncs() {
 }
 
 PYBIND11_EMBEDDED_MODULE(cyberpunk, m) {
-
 	auto rtti = RED4ext::CRTTISystem::Get();
+
+	// Def all globals
 	RED4ext::DynArray<RED4ext::CBaseFunction*> funcs;
 	rtti->GetGlobalFunctions(funcs);
-	for (const auto &item : funcs) {
-		const std::string cShortName = item->shortName.ToString();
-		m.def(item->shortName.ToString(), [&item](const pybind11::args& args){
-			std::vector<pybind11::object> pyArgs;
+	for (const auto &func : funcs) {
+		const std::string cShortName = func->shortName.ToString();
+		m.def(func->shortName.ToString(), [&func](const pybind11::args& args){
+			std::vector<pybind11::handle> pyArgs;
 			for (const auto &arg : args) {
-				pyArgs.push_back(arg.cast<pybind11::object>());
+				pyArgs.push_back(arg);
 			}
-			return ExecuteGlobalFunction(item->fullName.ToString(), pyArgs);
+			return ToPython(ExecuteGlobalFunction(func->fullName.ToString(), pyArgs));
 		});
 	}
 
@@ -37,13 +38,13 @@ PYBIND11_EMBEDDED_MODULE(cyberpunk, m) {
 	m.def("GetInstance", GetInstance);
 	m.def("messageBox", &messageBox);
 	m.def("getGlobalFuncs", &getGlobalFuncs);
-	pybind11::class_<PyGameObject>(m, "GameObject")
-	        .def("exec", &PyGameObject::exec)
-			.def("get", &PyGameObject::get)
-			.def("set", &PyGameObject::set)
-			.def("getTypeName", &PyGameObject::getTypeName)
-			.def("getTypeType", &PyGameObject::getTypeType)
-			.def("getFuncs", &PyGameObject::getFuncs);
+	pybind11::class_<RED4ext::CStackType>(m, "CStackType", pybind11::dynamic_attr())
+			.def("get", [](const pybind11::object& self, const std::string& propName){
+				return ToPython(GetPropValue(pybind11::cast<RED4ext::CStackType>(self), propName));
+			})
+			.def("set", [](const pybind11::object& self, const std::string& propName, const pybind11::object& value){
+				SetPropValue(pybind11::cast<RED4ext::CStackType>(self), propName, value);
+			});
 }
 
 typedef long(__fastcall *PresentD3D12)(IDXGISwapChain *pSwapChain, UINT SyncInterval, UINT Flags);
@@ -61,6 +62,15 @@ long __fastcall hookPresentD3D12(IDXGISwapChain3 *pSwapChain, UINT SyncInterval,
 		} catch (pybind11::error_already_set &e) {
 			MessageBoxA(0, e.what(), "what", 0);
 		}
+	}
+
+	if (GetAsyncKeyState(VK_NUMPAD2) & 0x1) {
+		RED4ext::StackArgs_t stackArgs;
+		auto cstr1 = RED4ext::CString("Items.money");
+		stackArgs.push_back({nullptr, &cstr1});
+		auto cstr2 = RED4ext::CString("12340");
+		stackArgs.push_back({nullptr, &cstr2});
+		RED4ext::ExecuteGlobalFunction("AddToInventory", nullptr, stackArgs);
 	}
 
 	return oPresentD3D12(pSwapChain, SyncInterval, Flags);
