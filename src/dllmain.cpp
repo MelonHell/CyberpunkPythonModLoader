@@ -41,6 +41,9 @@ PYBIND11_EMBEDDED_MODULE(cyberpunk, m) {
 			})
 			.def("set", [](const pybind11::object& self, const std::string& propName, const pybind11::object& value){
 				SetPropValue(pybind11::cast<RED4ext::CStackType>(self), propName, value);
+			})
+			.def("exec", [](const pybind11::object& self, const std::string& funcName, const pybind11::tuple& args){
+				return ToPython(ExecuteFunction(pybind11::cast<RED4ext::CStackType>(self), funcName, args));
 			});
 }
 
