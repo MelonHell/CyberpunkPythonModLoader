@@ -25,19 +25,16 @@ PYBIND11_EMBEDDED_MODULE(cyberpunk, m) {
 	rtti->GetGlobalFunctions(funcs);
 	for (const auto &func : funcs) {
 		const std::string cShortName = func->shortName.ToString();
-		m.def(func->shortName.ToString(), [&func](const pybind11::args& args){
-			std::vector<pybind11::handle> pyArgs;
-			for (const auto &arg : args) {
-				pyArgs.push_back(arg);
-			}
+		m.def(func->shortName.ToString(), [&func](const pybind11::args& pyArgs){
 			return ToPython(ExecuteGlobalFunction(func->fullName.ToString(), pyArgs));
 		});
 	}
 
-	m.def("ExecuteGlobalFunction", ExecuteGlobalFunction);
-	m.def("GetInstance", GetInstance);
+	m.def("ExecuteGlobalFunction", &ExecuteGlobalFunction);
+	m.def("GetInstance", &GetInstance);
 	m.def("messageBox", &messageBox);
 	m.def("getGlobalFuncs", &getGlobalFuncs);
+	m.def("ToPython", &ToPython);
 	pybind11::class_<RED4ext::CStackType>(m, "CStackType", pybind11::dynamic_attr())
 			.def("get", [](const pybind11::object& self, const std::string& propName){
 				return ToPython(GetPropValue(pybind11::cast<RED4ext::CStackType>(self), propName));
@@ -66,11 +63,15 @@ long __fastcall hookPresentD3D12(IDXGISwapChain3 *pSwapChain, UINT SyncInterval,
 
 	if (GetAsyncKeyState(VK_NUMPAD2) & 0x1) {
 		RED4ext::StackArgs_t stackArgs;
-		auto cstr1 = RED4ext::CString("Items.money");
+		RED4ext::ScriptGameInstance scriptGameInstance;
+		stackArgs.push_back({nullptr, &scriptGameInstance});
+		auto cstr1 = RED4ext::CString("-2382.430176");
 		stackArgs.push_back({nullptr, &cstr1});
-		auto cstr2 = RED4ext::CString("12340");
+		auto cstr2 = RED4ext::CString("-610.183594");
 		stackArgs.push_back({nullptr, &cstr2});
-		RED4ext::ExecuteGlobalFunction("AddToInventory", nullptr, stackArgs);
+		auto cstr3 = RED4ext::CString("12.673874");
+		stackArgs.push_back({nullptr, &cstr3});
+		RED4ext::ExecuteGlobalFunction("TeleportPlayerToPosition", nullptr, stackArgs);
 	}
 
 	return oPresentD3D12(pSwapChain, SyncInterval, Flags);
