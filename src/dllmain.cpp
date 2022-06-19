@@ -1,6 +1,8 @@
 #include "stdafx.h"
 
 #include "PyGameObject.h"
+#include "globals.h"
+#include "test/d3d12hook.h"
 
 void messageBox(const std::string &text, const std::string &title) {
 	MessageBoxA(nullptr, text.c_str(), title.c_str(), 0);
@@ -51,17 +53,30 @@ typedef long(__fastcall *PresentD3D12)(IDXGISwapChain *pSwapChain, UINT SyncInte
 
 PresentD3D12 oPresentD3D12;
 
+DWORD WINAPI TestThread(LPVOID lpParameter) {
+	pybind11::scoped_interpreter guard{};
+	try {
+		auto testModule = pybind11::module::import("plugins.test");
+		auto func = testModule.attr("main");
+		func();
+	} catch (pybind11::error_already_set &e) {
+		MessageBoxA(0, e.what(), "what", 0);
+	}
+	return 0;
+}
+
 long __fastcall hookPresentD3D12(IDXGISwapChain3 *pSwapChain, UINT SyncInterval, UINT Flags) {
 
 	if (GetAsyncKeyState(VK_NUMPAD1) & 0x1) {
-		pybind11::scoped_interpreter guard{};
-		try {
-			auto testModule = pybind11::module::import("plugins.test");
-			auto func = testModule.attr("main");
-			func();
-		} catch (pybind11::error_already_set &e) {
-			MessageBoxA(0, e.what(), "what", 0);
-		}
+		CreateThread(nullptr, 0, TestThread, nullptr, 0, nullptr);
+//		pybind11::scoped_interpreter guard{};
+//		try {
+//			auto testModule = pybind11::module::import("plugins.test");
+//			auto func = testModule.attr("main");
+//			func();
+//		} catch (pybind11::error_already_set &e) {
+//			MessageBoxA(0, e.what(), "what", 0);
+//		}
 	}
 
 	if (GetAsyncKeyState(VK_NUMPAD2) & 0x1) {
@@ -96,15 +111,20 @@ bool IsCyberpunk(HWND ahWnd) {
 
 DWORD WINAPI MainThread(LPVOID lpParameter) {
 	Sleep(5000);
-	HWND hwnd = nullptr;
-	while (hwnd == nullptr) {
+	while (globals::mainWindow == nullptr) {
 		HWND ForegroundWindow = GetForegroundWindow();
 		if (IsCyberpunk(ForegroundWindow)) {
-			hwnd = ForegroundWindow;
+			globals::mainWindow = ForegroundWindow;
 		}
 	}
 	if (kiero::init(kiero::RenderType::D3D12) == kiero::Status::Success) {
-		kiero::bind(140, (void **) &oPresentD3D12, hookPresentD3D12);
+//		kiero::bind(140, (void **) &oPresentD3D12, hookPresentD3D12);
+		kiero::bind(54, (void**)&d3d12hook::oExecuteCommandListsD3D12, d3d12hook::hookExecuteCommandListsD3D12);
+//		kiero::bind(58, (void**)&d3d12hook::oSignalD3D12, d3d12hook::hookSignalD3D12);
+		kiero::bind(140, (void**)&d3d12hook::oPresentD3D12, d3d12hook::hookPresentD3D12);
+//		kiero::bind(84, (void**)&d3d12hook::oDrawInstancedD3D12, d3d12hook::hookkDrawInstancedD3D12);
+//		kiero::bind(85, (void**)&d3d12hook::oDrawIndexedInstancedD3D12, d3d12hook::hookDrawIndexedInstancedD3D12);
+
 	}
 //	Py_Initialize();
 //	PyRun_SimpleString("import os\nos.system('mspaint')");
@@ -115,6 +135,7 @@ DWORD WINAPI MainThread(LPVOID lpParameter) {
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
 	if (fdwReason == DLL_PROCESS_ATTACH) {
+		globals::mainModule = hinstDLL;
 		CreateThread(nullptr, 0, MainThread, nullptr, 0, nullptr);
 //		auto* pRtti = RED4ext::CRTTISystem::Get();
 //		auto* pType = pRtti->GetType(RED4ext::FNV1a64("test"));
