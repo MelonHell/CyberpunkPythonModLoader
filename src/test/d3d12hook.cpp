@@ -1,50 +1,68 @@
 #include "d3d12hook.h"
 
 namespace d3d12hook {
-	ID3D12Device* d3d12Device = nullptr;
-	ID3D12DescriptorHeap* d3d12DescriptorHeapBackBuffers = nullptr;
-	ID3D12DescriptorHeap* d3d12DescriptorHeapImGuiRender = nullptr;
-	ID3D12GraphicsCommandList* d3d12CommandList = nullptr;
-	ID3D12Fence* d3d12Fence = nullptr;
+	ID3D12Device *d3d12Device = nullptr;
+	ID3D12DescriptorHeap *d3d12DescriptorHeapBackBuffers = nullptr;
+	ID3D12DescriptorHeap *d3d12DescriptorHeapImGuiRender = nullptr;
+	ID3D12GraphicsCommandList *d3d12CommandList = nullptr;
+	ID3D12Fence *d3d12Fence = nullptr;
 	UINT64 d3d12FenceValue = 0;
-	ID3D12CommandQueue* d3d12CommandQueue = nullptr;
+	ID3D12CommandQueue *d3d12CommandQueue = nullptr;
 
 	PresentD3D12 oPresentD3D12;
 	DrawInstancedD3D12 oDrawInstancedD3D12;
 	DrawIndexedInstancedD3D12 oDrawIndexedInstancedD3D12;
 
-	void(*oExecuteCommandListsD3D12)(ID3D12CommandQueue*, UINT, ID3D12CommandList*);
-	HRESULT(*oSignalD3D12)(ID3D12CommandQueue*, ID3D12Fence*, UINT64);
+	void (*oExecuteCommandListsD3D12)(ID3D12CommandQueue *, UINT, ID3D12CommandList *);
+
+	HRESULT (*oSignalD3D12)(ID3D12CommandQueue *, ID3D12Fence *, UINT64);
 
 	struct __declspec(uuid("189819f1-1db6-4b57-be54-1821339b85f7")) ID3D12Device;
 
 	struct FrameContext {
-		ID3D12CommandAllocator* commandAllocator = nullptr;
-		ID3D12Resource* main_render_target_resource = nullptr;
+		ID3D12CommandAllocator *commandAllocator = nullptr;
+		ID3D12Resource *main_render_target_resource = nullptr;
 		D3D12_CPU_DESCRIPTOR_HANDLE main_render_target_descriptor;
 	};
 
 	uint64_t buffersCounts = -1;
-	FrameContext* frameContext;
+	FrameContext *frameContext;
 
 	bool shutdown = false;
 
-	long __fastcall hookPresentD3D12(IDXGISwapChain3* pSwapChain, UINT SyncInterval, UINT Flags) {
+	long __fastcall hookPresentD3D12(IDXGISwapChain3 *pSwapChain, UINT SyncInterval, UINT Flags) {
 		static bool init = false;
 
 		if (GetAsyncKeyState(globals::openMenuKey) & 0x1) {
 			menu::isOpen ? menu::isOpen = false : menu::isOpen = true;
 		}
 
+		if (GetAsyncKeyState(VK_NUMPAD2) & 0x1) {
+			RED4ext::StackArgs_t stackArgs;
+			RED4ext::ScriptGameInstance scriptGameInstance;
+			stackArgs.push_back({nullptr, &scriptGameInstance});
+			auto cstr1 = RED4ext::CString("-2382.430176");
+			stackArgs.push_back({nullptr, &cstr1});
+			auto cstr2 = RED4ext::CString("-610.183594");
+			stackArgs.push_back({nullptr, &cstr2});
+			auto cstr3 = RED4ext::CString("12.673874");
+			stackArgs.push_back({nullptr, &cstr3});
+			RED4ext::ExecuteGlobalFunction("TeleportPlayerToPosition", nullptr, stackArgs);
+		}
+
 		if (!init) {
-			if (SUCCEEDED(pSwapChain->GetDevice(__uuidof(ID3D12Device), (void**)&d3d12Device))) {
+			if (SUCCEEDED(pSwapChain->GetDevice(__uuidof(ID3D12Device), (void **) &d3d12Device))) {
 				ImGui::CreateContext();
 
-				unsigned char* pixels;
+				unsigned char *pixels;
 				int width, height;
-				ImGuiIO& io = ImGui::GetIO(); (void)io;
+				ImGuiIO &io = ImGui::GetIO();
+				(void) io;
 				ImGui::StyleColorsDark();
 				io.Fonts->AddFontDefault();
+				ImGuiCP::InitFonts();
+//				io.Fonts->AddFontFromFileTTF(R"(E:\Downloads\New folder (18)\test\source\raw\base\gameplay\gui\fonts\foreign\russian\rajdhani_medium_neu.ttf)", 40, NULL, io.Fonts->GetGlyphRangesCyrillic());
+
 				io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 				io.IniFilename = NULL;
 
@@ -67,7 +85,7 @@ namespace d3d12hook {
 				if (d3d12Device->CreateDescriptorHeap(&descriptorImGuiRender, IID_PPV_ARGS(&d3d12DescriptorHeapImGuiRender)) != S_OK)
 					return false;
 
-				ID3D12CommandAllocator* allocator;
+				ID3D12CommandAllocator *allocator;
 				if (d3d12Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator)) != S_OK)
 					return false;
 
@@ -75,8 +93,7 @@ namespace d3d12hook {
 					frameContext[i].commandAllocator = allocator;
 				}
 
-				if (d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, NULL, IID_PPV_ARGS(&d3d12CommandList)) != S_OK ||
-				    d3d12CommandList->Close() != S_OK)
+				if (d3d12Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, NULL, IID_PPV_ARGS(&d3d12CommandList)) != S_OK || d3d12CommandList->Close() != S_OK)
 					return false;
 
 				D3D12_DESCRIPTOR_HEAP_DESC descriptorBackBuffers;
@@ -92,7 +109,7 @@ namespace d3d12hook {
 				D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = d3d12DescriptorHeapBackBuffers->GetCPUDescriptorHandleForHeapStart();
 
 				for (size_t i = 0; i < buffersCounts; i++) {
-					ID3D12Resource* pBackBuffer = nullptr;
+					ID3D12Resource *pBackBuffer = nullptr;
 
 					frameContext[i].main_render_target_descriptor = rtvHandle;
 					pSwapChain->GetBuffer(i, IID_PPV_ARGS(&pBackBuffer));
@@ -102,10 +119,7 @@ namespace d3d12hook {
 				}
 
 				ImGui_ImplWin32_Init(globals::mainWindow);
-				ImGui_ImplDX12_Init(d3d12Device, buffersCounts,
-				                    DXGI_FORMAT_R8G8B8A8_UNORM, d3d12DescriptorHeapImGuiRender,
-				                    d3d12DescriptorHeapImGuiRender->GetCPUDescriptorHandleForHeapStart(),
-				                    d3d12DescriptorHeapImGuiRender->GetGPUDescriptorHandleForHeapStart());
+				ImGui_ImplDX12_Init(d3d12Device, buffersCounts, DXGI_FORMAT_R8G8B8A8_UNORM, d3d12DescriptorHeapImGuiRender, d3d12DescriptorHeapImGuiRender->GetCPUDescriptorHandleForHeapStart(), d3d12DescriptorHeapImGuiRender->GetGPUDescriptorHandleForHeapStart());
 
 				ImGui_ImplDX12_CreateDeviceObjects();
 
@@ -114,63 +128,61 @@ namespace d3d12hook {
 			init = true;
 		}
 
-		if (shutdown == false) {
-			if (d3d12CommandQueue == nullptr)
-				return oPresentD3D12(pSwapChain, SyncInterval, Flags);
+		if (shutdown || d3d12CommandQueue == nullptr) return oPresentD3D12(pSwapChain, SyncInterval, Flags);
 
-			ImGui_ImplDX12_NewFrame();
-			ImGui_ImplWin32_NewFrame();
-			ImGui::NewFrame();
+		ImGui_ImplDX12_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
 
-			menu::Init();
+		menu::Init();
 
-			FrameContext& currentFrameContext = frameContext[pSwapChain->GetCurrentBackBufferIndex()];
-			currentFrameContext.commandAllocator->Reset();
+		FrameContext &currentFrameContext = frameContext[pSwapChain->GetCurrentBackBufferIndex()];
+		currentFrameContext.commandAllocator->Reset();
 
-			D3D12_RESOURCE_BARRIER barrier;
-			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			barrier.Transition.pResource = currentFrameContext.main_render_target_resource;
-			barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		D3D12_RESOURCE_BARRIER barrier;
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barrier.Transition.pResource = currentFrameContext.main_render_target_resource;
+		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
-			d3d12CommandList->Reset(currentFrameContext.commandAllocator, nullptr);
-			d3d12CommandList->ResourceBarrier(1, &barrier);
-			d3d12CommandList->OMSetRenderTargets(1, &currentFrameContext.main_render_target_descriptor, FALSE, nullptr);
-			d3d12CommandList->SetDescriptorHeaps(1, &d3d12DescriptorHeapImGuiRender);
+		d3d12CommandList->Reset(currentFrameContext.commandAllocator, nullptr);
+		d3d12CommandList->ResourceBarrier(1, &barrier);
+		d3d12CommandList->OMSetRenderTargets(1, &currentFrameContext.main_render_target_descriptor, FALSE, nullptr);
+		d3d12CommandList->SetDescriptorHeaps(1, &d3d12DescriptorHeapImGuiRender);
 
-			ImGui::Render();
-			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), d3d12CommandList);
+		ImGui::Render();
+		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), d3d12CommandList);
 
-			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 
-			d3d12CommandList->ResourceBarrier(1, &barrier);
-			d3d12CommandList->Close();
+		d3d12CommandList->ResourceBarrier(1, &barrier);
+		d3d12CommandList->Close();
 
-			d3d12CommandQueue->ExecuteCommandLists(1, reinterpret_cast<ID3D12CommandList* const*>(&d3d12CommandList));
-		}
+		d3d12CommandQueue->ExecuteCommandLists(1, reinterpret_cast<ID3D12CommandList *const *>(&d3d12CommandList));
+
 
 		return oPresentD3D12(pSwapChain, SyncInterval, Flags);
 	}
 
-	void __fastcall hookkDrawInstancedD3D12(ID3D12GraphicsCommandList* dCommandList, UINT VertexCountPerInstance, UINT InstanceCount, UINT StartVertexLocation, UINT StartInstanceLocation) {
+	void __fastcall hookkDrawInstancedD3D12(ID3D12GraphicsCommandList *dCommandList, UINT VertexCountPerInstance, UINT InstanceCount, UINT StartVertexLocation, UINT StartInstanceLocation) {
 		return oDrawInstancedD3D12(dCommandList, VertexCountPerInstance, InstanceCount, StartVertexLocation, StartInstanceLocation);
 	}
 
-	void __fastcall hookDrawIndexedInstancedD3D12(ID3D12GraphicsCommandList* dCommandList, UINT IndexCount, UINT InstanceCount, UINT StartIndex, INT BaseVertex) {
+	void __fastcall hookDrawIndexedInstancedD3D12(ID3D12GraphicsCommandList *dCommandList, UINT IndexCount, UINT InstanceCount, UINT StartIndex, INT BaseVertex) {
 		return oDrawIndexedInstancedD3D12(dCommandList, IndexCount, InstanceCount, StartIndex, BaseVertex);
 	}
 
-	void hookExecuteCommandListsD3D12(ID3D12CommandQueue* queue, UINT NumCommandLists, ID3D12CommandList* ppCommandLists) {
+	void hookExecuteCommandListsD3D12(ID3D12CommandQueue *queue, UINT NumCommandLists, ID3D12CommandList *ppCommandLists) {
 		if (!d3d12CommandQueue)
 			d3d12CommandQueue = queue;
 
 		oExecuteCommandListsD3D12(queue, NumCommandLists, ppCommandLists);
 	}
 
-	HRESULT hookSignalD3D12(ID3D12CommandQueue* queue, ID3D12Fence* fence, UINT64 value) {
+	HRESULT hookSignalD3D12(ID3D12CommandQueue *queue, ID3D12Fence *fence, UINT64 value) {
 		if (d3d12CommandQueue != nullptr && queue == d3d12CommandQueue) {
 			d3d12Fence = fence;
 			d3d12FenceValue = value;

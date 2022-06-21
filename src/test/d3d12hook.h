@@ -4,6 +4,7 @@
 #include "../globals.h"
 #include "menu.h"
 #include "inputhooks.h"
+#include "imgui_cyberpunk.h"
 
 namespace d3d12hook {
 	typedef long(__fastcall* PresentD3D12) (IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags);

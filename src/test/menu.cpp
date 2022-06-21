@@ -1,7 +1,7 @@
 #include "menu.h"
 
 namespace menu {
-	bool isOpen = false;
+	bool isOpen = true;
 	float test = 0.f;
 
 	void Init() {
@@ -18,7 +18,8 @@ namespace menu {
 		ImVec4* colors = ImGui::GetStyle().Colors;
 		colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
 		colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-		colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.83f);
+//		colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.83f);
+		colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
 		colors[ImGuiCol_ChildBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.00f);
 		colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
 		colors[ImGuiCol_Border] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
@@ -72,7 +73,7 @@ namespace menu {
 
 		if (isOpen)
 		{
-			ImGui::Begin("ImGui Menu", &isOpen, window_flags);
+			ImGui::Begin("ЧТОБЫ ПРОДОЛЖИТЬ, НАЖМИТЕ", &isOpen, window_flags);
 
 			ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.65f);
 			ImGui::PushItemWidth(-140);
@@ -82,7 +83,21 @@ namespace menu {
 				if (ImGui::TreeNode("SUB MENU"))
 				{
 					ImGui::Text("Text Test");
-					if (ImGui::Button("Button Test")) {}
+
+					static char str0[128];
+					if (ImGuiCP::InputText("test", str0, IM_ARRAYSIZE(str0))) {
+						pybind11::scoped_interpreter guard{};
+						pybind11::print(str0);
+					}
+
+
+					if (ImGuiCP::Button("Button Test")) {
+						pybind11::scoped_interpreter guard{};
+						pybind11::print(str0);
+					}
+
+
+
 					ImGui::Checkbox("CheckBox Test", &no_titlebar);
 					ImGui::SliderFloat("Slider Test", &test, 1.0f, 100.0f);
 

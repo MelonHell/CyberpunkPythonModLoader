@@ -14,8 +14,6 @@ namespace inputhook {
 		HWND wnd = (HWND)apThis->hWnd;
 		HWND foreground = GetForegroundWindow();
 
-//		auto& overlay = CET::Get().GetOverlay();
-
 		if (wnd == foreground && apThis->unk164 && !apThis->unk154 && !menu::isOpen)
 		{
 			RECT rect;

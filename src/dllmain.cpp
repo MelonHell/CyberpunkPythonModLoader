@@ -110,6 +110,9 @@ bool IsCyberpunk(HWND ahWnd) {
 
 
 DWORD WINAPI MainThread(LPVOID lpParameter) {
+
+	RED4ext::v0::GameState;
+
 	Sleep(5000);
 	while (globals::mainWindow == nullptr) {
 		HWND ForegroundWindow = GetForegroundWindow();
