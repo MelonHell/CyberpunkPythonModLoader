@@ -2,7 +2,7 @@
 
 #include <Windows.h>
 #include <tchar.h>
-#include "kiero.h"
+#include "libs/kiero.h"
 
 // Red4ext
 #include <RED4ext/RED4ext.hpp>
@@ -20,6 +20,6 @@
 #include <dxgi1_4.h>
 
 // imgui
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_win32.h"
-#include "imgui/imgui_impl_dx12.h"
+#include "libs/imgui/imgui.h"
+#include "libs/imgui/imgui_impl_win32.h"
+#include "libs/imgui/imgui_impl_dx12.h"

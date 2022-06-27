@@ -1,11 +1,11 @@
-#include "inputhooks.h"
+#include "InputHooks.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 using namespace ImGui;
 using TClipToCenter = HWND(RED4ext::CGameEngine::UnkC0*);
 
-namespace inputhook {
+namespace InputHooks {
 	WNDPROC oWndProc;
 	TClipToCenter* m_realClipToCenter{ nullptr };
 
@@ -14,7 +14,7 @@ namespace inputhook {
 		HWND wnd = (HWND)apThis->hWnd;
 		HWND foreground = GetForegroundWindow();
 
-		if (wnd == foreground && apThis->unk164 && !apThis->unk154 && !menu::isOpen)
+		if (wnd == foreground && apThis->unk164 && !apThis->unk154 && !Menu::isOpen)
 		{
 			RECT rect;
 			GetClientRect(wnd, &rect);
@@ -56,7 +56,7 @@ namespace inputhook {
 	}
 
 	LRESULT APIENTRY WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-		if (menu::isOpen) {
+		if (Menu::isOpen) {
 			ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam);
 			// ignore mouse & keyboard events
 			if ((uMsg >= WM_MOUSEFIRST && uMsg <= WM_MOUSELAST) || (uMsg >= WM_KEYFIRST && uMsg <= WM_KEYLAST)) return 0;

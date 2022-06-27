@@ -1,6 +1,6 @@
 #include "stdafx.h"
-#include "test/d3d12hook.h"
-#include "globals.h"
+#include "gui/DirectX12Hook.h"
+#include "RedPython.h"
 
 RED4EXT_C_EXPORT void RED4EXT_CALL RegisterTypes() {
 }
@@ -10,17 +10,47 @@ RED4EXT_C_EXPORT void RED4EXT_CALL PostRegisterTypes() {
 
 DWORD WINAPI InitThread(LPVOID lpParameter) {
 	Sleep(1000);
-	globals::mainWindow = (HWND) RED4ext::CGameEngine::Get()->unkC0->hWnd;
-	if (kiero::init(kiero::RenderType::D3D12) == kiero::Status::Success) {
-		kiero::bind(54, (void **) &d3d12hook::oExecuteCommandListsD3D12, d3d12hook::hookExecuteCommandListsD3D12);
-		kiero::bind(140, (void **) &d3d12hook::oPresentD3D12, d3d12hook::hookPresentD3D12);
-	}
+	HWND window = (HWND) RED4ext::CGameEngine::Get()->unkC0->hWnd;
+	DirectX12Hook::Init(window);
 	return 0;
 }
 
 bool BaseInit_OnEnter(RED4ext::CGameApplication *aApp) {
 	CreateThread(nullptr, 0, InitThread, nullptr, 0, nullptr);
 	return true;
+}
+
+void messageBox(const std::string &text, const std::string &title) {
+	MessageBoxA(nullptr, text.c_str(), title.c_str(), 0);
+}
+
+PYBIND11_EMBEDDED_MODULE(cyberpunk, m) {
+	auto rtti = RED4ext::CRTTISystem::Get();
+
+	// Def all globals
+	RED4ext::DynArray<RED4ext::CBaseFunction*> funcs;
+	rtti->GetGlobalFunctions(funcs);
+	for (const auto &func : funcs) {
+		const std::string cShortName = func->shortName.ToString();
+		m.def(func->shortName.ToString(), [&func](const pybind11::args& pyArgs){
+			return RedPython::ToPython(RedPython::ExecuteGlobalFunction(func->fullName.ToString(), pyArgs));
+		});
+	}
+
+	m.def("ExecuteGlobalFunction", &RedPython::ExecuteGlobalFunction);
+	m.def("GetInstance", &RedPython::GetInstance);
+	m.def("messageBox", &messageBox);
+	m.def("ToPython", &RedPython::ToPython);
+	pybind11::class_<RED4ext::CStackType>(m, "CStackType", pybind11::dynamic_attr())
+			.def("GetPropValue", [](const pybind11::object& self, const std::string& propName){
+				return RedPython::ToPython(RedPython::GetPropValue(pybind11::cast<RED4ext::CStackType>(self), propName));
+			})
+			.def("SetPropValue", [](const pybind11::object& self, const std::string& propName, const pybind11::object& value){
+				RedPython::SetPropValue(pybind11::cast<RED4ext::CStackType>(self), propName, value);
+			})
+			.def("ExecuteFunction", [](const pybind11::object& self, const std::string& funcName, const pybind11::tuple& args){
+				return RedPython::ToPython(RedPython::ExecuteFunction(pybind11::cast<RED4ext::CStackType>(self), funcName, args));
+			});
 }
 
 RED4EXT_C_EXPORT bool RED4EXT_CALL Main(RED4ext::PluginHandle aHandle, RED4ext::EMainReason aReason, const RED4ext::Sdk *aSdk) {
