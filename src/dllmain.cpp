@@ -111,8 +111,6 @@ bool IsCyberpunk(HWND ahWnd) {
 
 DWORD WINAPI MainThread(LPVOID lpParameter) {
 
-	RED4ext::v0::GameState;
-
 	Sleep(5000);
 	while (globals::mainWindow == nullptr) {
 		HWND ForegroundWindow = GetForegroundWindow();
@@ -136,18 +134,12 @@ DWORD WINAPI MainThread(LPVOID lpParameter) {
 	return 0;
 }
 
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
-	if (fdwReason == DLL_PROCESS_ATTACH) {
-		globals::mainModule = hinstDLL;
-		CreateThread(nullptr, 0, MainThread, nullptr, 0, nullptr);
-//		auto* pRtti = RED4ext::CRTTISystem::Get();
-//		auto* pType = pRtti->GetType(RED4ext::FNV1a64("test"));
-//		Py_Initialize();
-//		PyRun_SimpleString("import os\nos.system('mspaint')");
-//		Py_Finalize();
-//		MessageBoxA(nullptr, "test1", "test2", 0);
-	} else if (fdwReason == DLL_PROCESS_DETACH) {
-		FreeLibraryAndExitThread(hinstDLL, TRUE);
-	}
-	return TRUE;
-}
+//BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
+//	if (fdwReason == DLL_PROCESS_ATTACH) {
+//		globals::mainModule = hinstDLL;
+//		CreateThread(nullptr, 0, MainThread, nullptr, 0, nullptr);
+//	} else if (fdwReason == DLL_PROCESS_DETACH) {
+//		FreeLibraryAndExitThread(hinstDLL, TRUE);
+//	}
+//	return TRUE;
+//}

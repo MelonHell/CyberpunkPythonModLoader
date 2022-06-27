@@ -1,7 +1,7 @@
 #include "globals.h"
 
 namespace globals {
-	HMODULE mainModule;
+//	HMODULE mainModule;
 	HWND mainWindow;
 	int uninjectKey = VK_F12;
 	int openMenuKey = VK_INSERT;
